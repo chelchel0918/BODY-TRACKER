@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>體態紀錄</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#1E2622; --paper:#F5F6F2; --card:#FFFFFF;
+    --teal:#2F6F6B; --teal-d:#204E4B; --amber:#DD9A3D;
+    --line:#DFE3DE; --muted:#6E7A73; --danger:#C1543F;
+    --radius:14px;
+    box-sizing:border-box;
+  }
+  *{box-sizing:inherit; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"Manrope","Noto Sans TC",-apple-system,BlinkMacSystemFont,sans-serif;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:calc(72px + env(safe-area-inset-bottom,0px));
+    -webkit-tap-highlight-color:transparent;
+  }
+  header{padding:22px 20px 14px; position:sticky; top:0; background:var(--paper); z-index:5;
+    display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+  header h1{font-size:22px; font-weight:800; letter-spacing:-0.02em;}
+  header p{color:var(--muted); font-size:13px; margin-top:2px;}
+
+  main{padding:0 16px 24px; max-width:520px; margin:0 auto;}
+  .view{display:none;}
+  .view.active{display:block; animation:fade .18s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:none}}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:18px; margin-bottom:14px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px; font-weight:500;}
+  .field input, .field select, .field textarea{
+    width:100%; padding:11px 12px; font-size:16px;
+    border:1px solid var(--line); border-radius:10px;
+    background:var(--paper); color:var(--ink); font-family:inherit;
+  }
+  .field textarea{resize:vertical; min-height:70px; font-size:15px;}
+  .field input:focus, .field select:focus, .field textarea:focus{outline:none; border-color:var(--teal);}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .subhead{font-size:12.5px; font-weight:700; color:var(--teal); margin:2px 0 10px; display:flex; align-items:center; gap:6px;}
+  .subhead:not(:first-child){margin-top:6px; padding-top:14px; border-top:1px dashed var(--line);}
+
+  .btn{width:100%; padding:13px; border:none; border-radius:10px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer;}
+  .btn-primary{background:var(--teal); color:#fff;}
+  .btn-primary:active{background:var(--teal-d);}
+  .btn-ghost{background:transparent; color:var(--teal); border:1px solid var(--teal);}
+  .btn-row{display:flex; gap:10px; margin-top:4px;}
+  .btn-row .btn{flex:1;}
+
+  .empty{text-align:center; padding:48px 20px; color:var(--muted);}
+  .empty .big{font-size:34px; margin-bottom:8px;}
+
+  .rec{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 14px; margin-bottom:10px;}
+  .rec-top{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+  .rec .date{font-weight:700; font-size:14px;}
+  .rec .stats{color:var(--muted); font-size:12.5px; margin-top:5px; line-height:1.6;}
+  .rec .stats b{color:var(--ink); font-weight:600;}
+  .rec .badges{display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;}
+  .badge{font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; background:#EAF2F0; color:var(--teal-d);}
+  .rec .note{margin-top:8px; font-size:12.5px; color:var(--ink); background:var(--paper); border-radius:8px; padding:8px 10px; white-space:pre-wrap;}
+  .rec .actions{display:flex; gap:6px; flex-shrink:0;}
+  .icon-btn{width:34px; height:34px; border-radius:9px; border:1px solid var(--line); background:var(--paper); font-size:15px; cursor:pointer; flex-shrink:0;}
+  .icon-btn.del{color:var(--danger); border-color:#F1D6D0;}
+
+  .chart-wrap{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px 12px; margin-bottom:12px;}
+  .chart-wrap canvas{max-height:280px;}
+  .legend-note{display:flex; gap:16px; font-size:12px; color:var(--muted); padding:0 6px 4px; justify-content:center;}
+  .legend-note span{display:inline-flex; align-items:center; gap:5px;}
+  .dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
+  .toggle-row{display:flex; gap:8px; margin-bottom:14px;}
+  .toggle-row button{
+    flex:1; padding:9px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card); color:var(--muted); font-family:inherit; font-size:13px; font-weight:700; cursor:pointer;
+  }
+  .toggle-row button.active{background:var(--teal); border-color:var(--teal); color:#fff;}
+
+  .section-title{font-size:13px; color:var(--muted); font-weight:600; margin:4px 2px 10px;}
+  .csv-row{display:flex; gap:10px;}
+  .csv-row .btn{font-size:13.5px; padding:11px;}
+  input[type=file]{display:none;}
+  .hint{font-size:11.5px; color:var(--muted); margin-top:-6px; margin-bottom:14px; line-height:1.5;}
+
+  .toast{
+    position:fixed; left:50%; bottom:100px; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; padding:10px 18px; border-radius:999px;
+    font-size:13px; opacity:0; transition:.25s; pointer-events:none; z-index:50; white-space:nowrap;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  nav{
+    position:fixed; bottom:0; left:0; right:0; background:var(--card);
+    border-top:1px solid var(--line); display:flex; z-index:10;
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  nav button{
+    flex:1; background:none; border:none; padding:11px 4px 9px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    color:var(--muted); font-family:inherit; font-size:11.5px; font-weight:600;
+  }
+  nav button .ic{font-size:19px;}
+  nav button.active{color:var(--teal);}
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(20,24,21,.5);
+    display:flex; align-items:center; justify-content:center; padding:20px; z-index:100;
+  }
+  .overlay.hidden{display:none;}
+  .overlay-card{background:var(--card); border-radius:18px; padding:24px 22px; max-width:360px; width:100%;}
+  .overlay-card h2{font-size:18px; font-weight:800; margin-bottom:6px;}
+  .overlay-card p{font-size:13px; color:var(--muted); margin-bottom:18px; line-height:1.5;}
+  .overlay-actions{display:flex; gap:10px; margin-top:4px;}
+
+  @media(prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#151916; --card:#1D2320; --ink:#EDEFEA;
+      --line:#2B322D; --muted:#8C978F; --teal:#5FA79E; --teal-d:#4C8A82;
+    }
+    .badge{background:#20302B; color:#8FCFC2;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>體態紀錄</h1>
+    <p id="headerSub">持續追蹤，看見變化</p>
+  </div>
+  <button class="icon-btn" id="settingsBtn" title="編輯基本資料">⚙️</button>
+</header>
+
+<main>
+
+  <!-- 輸入 -->
+  <section class="view active" id="view-input">
+    <div class="card">
+      <div class="subhead">今日紀錄</div>
+      <div class="field">
+        <label>日期</label>
+        <input type="date" id="f-date">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>體重 (kg)</label>
+          <input type="number" step="0.1" id="f-weight" placeholder="例如 65.4">
+        </div>
+        <div class="field">
+          <label>腰圍 (cm)</label>
+          <input type="number" step="0.1" id="f-waist" placeholder="例如 78.5">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>大腿圍 (cm)</label>
+          <input type="number" step="0.1" id="f-thigh" placeholder="選填">
+        </div>
+        <div class="field">
+          <label>小腿圍 (cm)</label>
+          <input type="number" step="0.1" id="f-calf" placeholder="選填">
+        </div>
+      </div>
+      <div class="field">
+        <label>手臂圍 (cm)</label>
+        <input type="number" step="0.1" id="f-arm" placeholder="選填">
+      </div>
+      <div class="hint" id="calcPreview">填寫體重、腰圍後，會自動計算 BMI 與估算體脂率</div>
+
+      <div class="subhead">備註</div>
+      <div class="field">
+        <textarea id="f-note" placeholder="今天吃了什麼、運動項目、身體狀況…"></textarea>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="saveBtn">儲存紀錄</button>
+        <button class="btn btn-ghost" id="cancelEditBtn" style="display:none;">取消編輯</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 圖表 -->
+  <section class="view" id="view-chart">
+    <div class="toggle-row">
+      <button id="modeWeight" class="active">體重／腰圍</button>
+      <button id="modeBmi">BMI／估算體脂率</button>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="trendChart" height="260"></canvas>
+    </div>
+    <div class="legend-note" id="legendNote">
+      <span><i class="dot" style="background:#2F6F6B"></i>體重 (kg)・左軸</span>
+      <span><i class="dot" style="background:#DD9A3D"></i>腰圍 (cm)・右軸</span>
+    </div>
+    <div id="chartEmpty" class="empty" style="display:none;">
+      <div class="big">📈</div>還沒有足夠的紀錄可以畫圖<br>先去新增幾筆數據吧
+    </div>
+  </section>
+
+  <!-- 紀錄 -->
+  <section class="view" id="view-history">
+    <div class="section-title">資料備份</div>
+    <div class="card csv-row">
+      <button class="btn btn-ghost" id="exportBtn">匯出 CSV</button>
+      <button class="btn btn-ghost" id="importTriggerBtn">匯入 CSV</button>
+      <input type="file" id="importFile" accept=".csv">
+    </div>
+    <div class="section-title">歷史紀錄</div>
+    <div id="historyList"></div>
+    <div id="historyEmpty" class="empty" style="display:none;">
+      <div class="big">🗒️</div>尚無任何紀錄<br>點下方「輸入」開始記錄
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<nav>
+  <button data-view="view-input" class="active"><span class="ic">✏️</span>輸入</button>
+  <button data-view="view-chart"><span class="ic">📈</span>趨勢</button>
+  <button data-view="view-history"><span class="ic">🗒️</span>紀錄</button>
+</nav>
+
+<!-- 首次使用 / 編輯基本資料 -->
+<div class="overlay hidden" id="onboarding">
+  <div class="overlay-card">
+    <h2>歡迎使用體態紀錄</h2>
+    <p>請先填寫性別與身高，之後每天記錄就不用再輸入。這兩項只影響 BMI 與估算體脂率的計算。</p>
+    <div class="field">
+      <label>性別</label>
+      <select id="ob-gender">
+        <option value="male">男</option>
+        <option value="female">女</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>身高 (cm)</label>
+      <input type="number" step="0.1" id="ob-height" placeholder="例如 170">
+    </div>
+    <div class="overlay-actions">
+      <button class="btn btn-ghost" id="obCancelBtn" style="display:none;">取消</button>
+      <button class="btn btn-primary" id="obSaveBtn">開始使用</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'bodyTrackerRecords';
+const PROFILE_KEY = 'bodyTrackerProfile';
+let records = [];
+let editingId = null;
+let chart = null;
+let chartMode = 'weight'; // 'weight' | 'bmi'
+
+// ---- Calculations ----
+function computeBMI(r){
+  if(!r.weight || !r.height) return null;
+  const h = r.height/100;
+  return +(r.weight/(h*h)).toFixed(1);
+}
+// Relative Fat Mass (RFM) estimate — only needs height, waist, gender
+function computeBodyFat(r){
+  if(!r.waist || !r.height || !r.gender) return null;
+  const ratio = r.height / r.waist;
+  const val = r.gender === 'male' ? (64 - 20*ratio) : (76 - 20*ratio);
+  if(val < 0 || val > 70) return null;
+  return +val.toFixed(1);
+}
+
+function loadRecords(){
+  try{ records = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }catch(e){ records = []; }
+}
+function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
+function loadProfile(){
+  try{ return JSON.parse(localStorage.getItem(PROFILE_KEY)) || {}; }catch(e){ return {}; }
+}
+function saveProfile(gender, height){
+  localStorage.setItem(PROFILE_KEY, JSON.stringify({gender, height}));
+}
+function sortedRecords(){ return [...records].sort((a,b)=> a.date.localeCompare(b.date)); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=> t.classList.remove('show'), 1800);
+}
+
+// ---- Onboarding / profile modal ----
+function openProfileModal(forced){
+  const profile = loadProfile();
+  document.getElementById('ob-gender').value = profile.gender || 'male';
+  document.getElementById('ob-height').value = profile.height || '';
+  document.getElementById('obCancelBtn').style.display = forced ? 'none' : 'inline-block';
+  document.getElementById('onboarding').classList.remove('hidden');
+}
+function closeProfileModal(){ document.getElementById('onboarding').classList.add('hidden'); }
+document.getElementById('obSaveBtn').addEventListener('click', ()=>{
+  const gender = document.getElementById('ob-gender').value;
+  const height = parseFloat(document.getElementById('ob-height').value);
+  if(!height){ showToast('請輸入身高'); return; }
+  saveProfile(gender, height);
+  closeProfileModal();
+  updateCalcPreview();
+  showToast('基本資料已儲存');
+});
+document.getElementById('obCancelBtn').addEventListener('click', closeProfileModal);
+document.getElementById('settingsBtn').addEventListener('click', ()=> openProfileModal(false));
+
+// ---- Nav ----
+document.querySelectorAll('nav button').forEach(btn=>{
+  btn.addEventListener('click', ()=> switchView(btn.dataset.view));
+});
+function switchView(id){
+  document.querySelectorAll('.view').forEach(v=> v.classList.toggle('active', v.id===id));
+  document.querySelectorAll('nav button').forEach(b=> b.classList.toggle('active', b.dataset.view===id));
+  if(id==='view-chart') renderChart();
+  if(id==='view-history') renderHistory();
+}
+
+// ---- Form ----
+const f = {
+  date: document.getElementById('f-date'),
+  weight: document.getElementById('f-weight'),
+  waist: document.getElementById('f-waist'),
+  thigh: document.getElementById('f-thigh'),
+  calf: document.getElementById('f-calf'),
+  arm: document.getElementById('f-arm'),
+  note: document.getElementById('f-note'),
+};
+function today(){ return new Date().toISOString().slice(0,10); }
+function resetForm(){
+  f.date.value = today();
+  f.weight.value = f.waist.value = f.thigh.value = f.calf.value = f.arm.value = '';
+  f.note.value = '';
+  editingId = null;
+  document.getElementById('saveBtn').textContent = '儲存紀錄';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+  updateCalcPreview();
+}
+function updateCalcPreview(){
+  const profile = loadProfile();
+  const r = { weight:parseFloat(f.weight.value), height:profile.height, waist:parseFloat(f.waist.value), gender:profile.gender };
+  const bmi = computeBMI(r);
+  const bf = computeBodyFat(r);
+  const el = document.getElementById('calcPreview');
+  if(bmi==null && bf==null){
+    el.textContent = '填寫體重、腰圍後，會自動計算 BMI 與估算體脂率';
+  }else{
+    el.innerHTML = `目前計算結果： BMI <b>${bmi ?? '—'}</b>　估算體脂率 <b>${bf!=null? bf+'%':'—'}</b>`;
+  }
+}
+[f.weight, f.waist].forEach(el=> el.addEventListener('input', updateCalcPreview));
+resetForm();
+
+document.getElementById('saveBtn').addEventListener('click', ()=>{
+  if(!f.date.value){ showToast('請選擇日期'); return; }
+  if(!f.weight.value && !f.waist.value){ showToast('至少填寫體重或腰圍'); return; }
+  const profile = loadProfile();
+  const data = {
+    date: f.date.value,
+    gender: profile.gender || null,
+    height: profile.height || null,
+    weight: f.weight.value ? parseFloat(f.weight.value) : null,
+    waist: f.waist.value ? parseFloat(f.waist.value) : null,
+    thigh: f.thigh.value ? parseFloat(f.thigh.value) : null,
+    calf: f.calf.value ? parseFloat(f.calf.value) : null,
+    arm: f.arm.value ? parseFloat(f.arm.value) : null,
+    note: f.note.value.trim(),
+  };
+  if(editingId){
+    const idx = records.findIndex(r=> r.id===editingId);
+    if(idx>-1) records[idx] = {...records[idx], ...data};
+    showToast('已更新紀錄');
+  }else{
+    records.push({ id: uid(), ...data });
+    showToast('已儲存紀錄');
+  }
+  persist();
+  resetForm();
+  renderHistory();
+});
+document.getElementById('cancelEditBtn').addEventListener('click', resetForm);
+
+function startEdit(id){
+  const r = records.find(x=> x.id===id);
+  if(!r) return;
+  editingId = id;
+  f.date.value = r.date;
+  f.weight.value = r.weight ?? '';
+  f.waist.value = r.waist ?? '';
+  f.thigh.value = r.thigh ?? '';
+  f.calf.value = r.calf ?? '';
+  f.arm.value = r.arm ?? '';
+  f.note.value = r.note || '';
+  document.getElementById('saveBtn').textContent = '更新紀錄';
+  document.getElementById('cancelEditBtn').style.display = 'block';
+  updateCalcPreview();
+  switchView('view-input');
+}
+function deleteRecord(id){
+  if(!confirm('確定要刪除這筆紀錄嗎？')) return;
+  records = records.filter(r=> r.id!==id);
+  persist();
+  renderHistory();
+  showToast('已刪除');
+}
+
+// ---- History ----
+function renderHistory(){
+  const list = document.getElementById('historyList');
+  const empty = document.getElementById('historyEmpty');
+  const sorted = [...records].sort((a,b)=> b.date.localeCompare(a.date));
+  list.innerHTML = '';
+  empty.style.display = sorted.length ? 'none' : 'block';
+  sorted.forEach(r=>{
+    const bmi = computeBMI(r);
+    const bf = computeBodyFat(r);
+    const parts = [];
+    if(r.weight!=null) parts.push(`體重 <b>${r.weight}</b>kg`);
+    if(r.waist!=null) parts.push(`腰圍 <b>${r.waist}</b>cm`);
+    if(r.thigh!=null) parts.push(`大腿 <b>${r.thigh}</b>cm`);
+    if(r.calf!=null) parts.push(`小腿 <b>${r.calf}</b>cm`);
+    if(r.arm!=null) parts.push(`手臂 <b>${r.arm}</b>cm`);
+    const div = document.createElement('div');
+    div.className = 'rec';
+    div.innerHTML = `
+      <div class="rec-top">
+        <div>
+          <div class="date">${r.date}</div>
+          <div class="stats">${parts.join('　') || '無數據'}</div>
+          <div class="badges">
+            ${bmi!=null ? `<span class="badge">BMI ${bmi}</span>` : ''}
+            ${bf!=null ? `<span class="badge">估算體脂 ${bf}%</span>` : ''}
+          </div>
+        </div>
+        <div class="actions">
+          <button class="icon-btn edit">✎</button>
+          <button class="icon-btn del">✕</button>
+        </div>
+      </div>
+      ${r.note ? `<div class="note">${escapeHtml(r.note)}</div>` : ''}`;
+    div.querySelector('.edit').addEventListener('click', ()=> startEdit(r.id));
+    div.querySelector('.del').addEventListener('click', ()=> deleteRecord(r.id));
+    list.appendChild(div);
+  });
+}
+function escapeHtml(s){
+  return s.replace(/[&<>"]/g, c=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+// ---- Chart ----
+document.getElementById('modeWeight').addEventListener('click', ()=> setChartMode('weight'));
+document.getElementById('modeBmi').addEventListener('click', ()=> setChartMode('bmi'));
+function setChartMode(mode){
+  chartMode = mode;
+  document.getElementById('modeWeight').classList.toggle('active', mode==='weight');
+  document.getElementById('modeBmi').classList.toggle('active', mode==='bmi');
+  renderChart();
+}
+function renderChart(){
+  const data = sortedRecords();
+  const wrap = document.querySelector('.chart-wrap');
+  const legend = document.getElementById('legendNote');
+  const emptyEl = document.getElementById('chartEmpty');
+  if(data.length < 2){
+    wrap.style.display = 'none';
+    legend.style.display = 'none';
+    emptyEl.style.display = 'block';
+    return;
+  }
+  wrap.style.display = 'block';
+  legend.style.display = 'flex';
+  emptyEl.style.display = 'none';
+
+  const labels = data.map(r=> r.date);
+  let dsA, dsB, titleA, titleB;
+  if(chartMode === 'weight'){
+    dsA = data.map(r=> r.weight);
+    dsB = data.map(r=> r.waist);
+    titleA = '體重 kg'; titleB = '腰圍 cm';
+    legend.innerHTML = `<span><i class="dot" style="background:#2F6F6B"></i>體重 (kg)・左軸</span><span><i class="dot" style="background:#DD9A3D"></i>腰圍 (cm)・右軸</span>`;
+  }else{
+    dsA = data.map(r=> computeBMI(r));
+    dsB = data.map(r=> computeBodyFat(r));
+    titleA = 'BMI'; titleB = '估算體脂率 %';
+    legend.innerHTML = `<span><i class="dot" style="background:#2F6F6B"></i>BMI・左軸</span><span><i class="dot" style="background:#DD9A3D"></i>估算體脂率 (%)・右軸</span>`;
+  }
+
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  if(chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: titleA, data: dsA, spanGaps:true, borderColor:'#2F6F6B', backgroundColor:'#2F6F6B', tension:.3, yAxisID:'y', pointRadius:3 },
+        { label: titleB, data: dsB, spanGaps:true, borderColor:'#DD9A3D', backgroundColor:'#DD9A3D', tension:.3, yAxisID:'y1', pointRadius:3 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display:false } },
+      interaction: { mode:'index', intersect:false },
+      scales: {
+        y: { type:'linear', position:'left', title:{display:true, text:titleA} },
+        y1:{ type:'linear', position:'right', title:{display:true, text:titleB}, grid:{ drawOnChartArea:false } },
+        x: { ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit:6 } }
+      }
+    }
+  });
+}
+
+// ---- CSV ----
+const CSV_HEADERS = ['date','gender','height','weight','waist','thigh','calf','arm','note'];
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  if(!records.length){ showToast('目前沒有資料可匯出'); return; }
+  const esc = (v)=> {
+    if(v==null) return '';
+    const s = String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+  };
+  const rows = [CSV_HEADERS.join(',')];
+  sortedRecords().forEach(r=>{
+    rows.push(CSV_HEADERS.map(h=> esc(r[h])).join(','));
+  });
+  const blob = new Blob(["\ufeff" + rows.join('\n')], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `body-tracker-${today()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('已匯出 CSV');
+});
+
+document.getElementById('importTriggerBtn').addEventListener('click', ()=> document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt)=>{
+    try{
+      const profile = loadProfile();
+      const text = evt.target.result.replace(/^\ufeff/, '').trim();
+      const rows = parseCSV(text);
+      const headers = rows[0];
+      let imported = 0;
+      for(let i=1;i<rows.length;i++){
+        const cols = rows[i];
+        if(!cols.length || (cols.length===1 && !cols[0])) continue;
+        const obj = {};
+        headers.forEach((h,idx)=>{
+          const v = cols[idx] !== undefined ? cols[idx] : '';
+          if(h==='date' || h==='gender' || h==='note') obj[h] = v;
+          else obj[h] = v==='' ? null : parseFloat(v);
+        });
+        if(!obj.date) continue;
+        records.push({ id: uid(), date:obj.date, gender:obj.gender || profile.gender || 'male',
+          height:(obj.height ?? profile.height) ?? null,
+          weight:obj.weight??null, waist:obj.waist??null, thigh:obj.thigh??null, calf:obj.calf??null,
+          arm:obj.arm??null, note:obj.note||'' });
+        imported++;
+      }
+      persist();
+      renderHistory();
+      showToast(`已匯入 ${imported} 筆紀錄`);
+    }catch(err){
+      showToast('匯入失敗，請確認 CSV 格式');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+});
+// simple CSV parser supporting quoted fields with commas/newlines
+function parseCSV(text){
+  const rows = []; let row = []; let field = ''; let inQuotes = false;
+  for(let i=0;i<text.length;i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){
+        if(text[i+1] === '"'){ field += '"'; i++; } else { inQuotes = false; }
+      } else field += c;
+    }else{
+      if(c === '"') inQuotes = true;
+      else if(c === ','){ row.push(field); field=''; }
+      else if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else if(c === '\r'){ /* skip */ }
+      else field += c;
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+// ---- Init ----
+loadRecords();
+renderHistory();
+const initialProfile = loadProfile();
+if(!initialProfile.gender || !initialProfile.height){
+  openProfileModal(true);
+}
+</script>
+</body>
+</html>
